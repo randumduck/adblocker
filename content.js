@@ -1,77 +1,110 @@
-// content.js - Stealth Visual Cloak Version
+// content.js
+console.log("[Modern Sentry] Engine Active");
 
-console.log("[MyAdBlocker] Content script actively scanning...");
+// --- PART 1: ELEMENT ZAPPER (Sniper Mode) ---
+// Kept at the absolute top so it always registers instantly
+chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === "ACTIVATE_SNIPER") {
+        activateSniperMode();
+        sendResponse({status: "Sniper Activated"}); // Acknowledge receipt
+    }
+    return true; 
+});
 
-// ---------------------------------------------------------------------
-// PART 1: General Cosmetic Filtering (Hiding Empty Ad Boxes)
-// ---------------------------------------------------------------------
-const cosmeticSelectors = [
-  '#at-top',                 
-  'div[id^="div-gpt-ad"]',   
-  '.ad-container',           
-  '.google-ad',               
-  'iframe[title="Advertisement"]' 
-];
+function activateSniperMode() {
+    if (document.getElementById('modern-sentry-sniper-style')) return;
 
-function applyCosmeticFiltering() {
-  cosmeticSelectors.forEach(selector => {
-    const adElements = document.querySelectorAll(selector);
-    adElements.forEach(element => {
-      if (element.style.display !== 'none') {
-        element.setAttribute('style', 'display: none !important;');
-      }
-    });
-  });
+    const style = document.createElement('style');
+    style.id = 'modern-sentry-sniper-style';
+    style.innerHTML = `
+        .modern-sentry-target { 
+            outline: 3px solid #ef4444 !important; 
+            background-color: rgba(239, 68, 68, 0.4) !important; 
+            cursor: crosshair !important; 
+            transition: background-color 0.1s !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    let currentTarget = null;
+
+    const mouseMoveHandler = (e) => {
+        if (currentTarget && currentTarget !== e.target) {
+            currentTarget.classList.remove('modern-sentry-target');
+        }
+        currentTarget = e.target;
+        currentTarget.classList.add('modern-sentry-target');
+    };
+
+    const clickHandler = (e) => {
+        e.preventDefault();
+        e.stopPropagation(); 
+        
+        if (currentTarget) {
+            currentTarget.classList.remove('modern-sentry-target');
+            
+            let selector = currentTarget.tagName.toLowerCase();
+            if (currentTarget.id) {
+                selector += '#' + currentTarget.id;
+            } else if (currentTarget.className && typeof currentTarget.className === 'string') {
+                selector += '.' + currentTarget.className.trim().split(/\s+/).join('.');
+            }
+
+            currentTarget.setAttribute('style', 'display: none !important;');
+            
+            chrome.storage.local.get(['zappedElements'], (res) => {
+                let zapped = res.zappedElements || [];
+                zapped.push(selector);
+                chrome.storage.local.set({zappedElements: zapped});
+            });
+
+            document.removeEventListener('mousemove', mouseMoveHandler, true);
+            document.removeEventListener('click', clickHandler, true);
+            document.getElementById('modern-sentry-sniper-style').remove();
+        }
+    };
+
+    // 'true' forces our extension to intercept the click before the website registers it
+    document.addEventListener('mousemove', mouseMoveHandler, true);
+    document.addEventListener('click', clickHandler, true); 
 }
 
-// Run immediately, then check periodically for lazy-loaded ads
-applyCosmeticFiltering();
-setInterval(applyCosmeticFiltering, 1500);
-
-
-// ---------------------------------------------------------------------
-// PART 2: Stealth Visual Cloak (Evading YouTube Detection)
-// ---------------------------------------------------------------------
-function cloakYouTubeAds() {
-  if (!window.location.hostname.includes('youtube.com')) return;
-
-  const videoPlayer = document.querySelector('video.html5-main-video');
-  const adContainer = document.querySelector('.ad-showing');
-  
-  // YouTube frequently changes the class name of the skip button
-  const skipButton = document.querySelector('.ytp-ad-skip-button') || document.querySelector('.ytp-ad-skip-button-modern');
-  const overlayClose = document.querySelector('.ytp-ad-overlay-close-button');
-
-  if (adContainer && videoPlayer) {
-    // 1. Mute the ad audio instantly
-    if (!videoPlayer.muted) {
-        videoPlayer.muted = true;
-    }
+// --- PART 2: CORE PROTECTION ---
+chrome.storage.local.get(['whitelist', 'zappedElements'], (res) => {
+    let whitelist = res.whitelist || [];
+    if (whitelist.includes(window.location.hostname)) return; // Kill switch active
     
-    // 2. Cloak it: Turn the video screen completely transparent so you don't see the ad
-    if (videoPlayer.style.opacity !== '0') {
-        videoPlayer.style.opacity = '0';
+    startProtection(res.zappedElements || []);
+});
+
+function startProtection(customZappedElements) {
+    const cosmeticSelectors = ['#at-top', 'div[id^="div-gpt-ad"]', '.ad-container', '.google-ad', 'iframe[title="Advertisement"]'];
+    
+    function applyCosmeticFiltering() {
+      cosmeticSelectors.forEach(selector => {
+        document.querySelectorAll(selector).forEach(el => el.setAttribute('style', 'display: none !important;'));
+      });
+      customZappedElements.forEach(selector => {
+          try { document.querySelectorAll(selector).forEach(el => el.setAttribute('style', 'display: none !important;')); } catch(e){}
+      });
     }
-  } else if (videoPlayer) {
-    // 3. Un-cloak it: Ensure the main video is visible when the ad is over
-    if (videoPlayer.style.opacity === '0') {
-        videoPlayer.style.opacity = '1';
+    applyCosmeticFiltering();
+    setInterval(applyCosmeticFiltering, 1500);
+
+    function handleYouTube() {
+      if (!window.location.hostname.includes('youtube.com')) return;
+      const videoPlayer = document.querySelector('video.html5-main-video');
+      const adContainer = document.querySelector('.ad-showing');
+      const skipButton = document.querySelector('.ytp-ad-skip-button') || document.querySelector('.ytp-skip-ad-button');
+      
+      if (adContainer && videoPlayer) {
+          if (!videoPlayer.muted) videoPlayer.muted = true;
+          if (videoPlayer.style.opacity !== '0') videoPlayer.style.opacity = '0';
+          if (videoPlayer.playbackRate !== 16) videoPlayer.playbackRate = 16;
+      } else if (videoPlayer && videoPlayer.style.opacity === '0') {
+          videoPlayer.style.opacity = '1';
+      }
+      if (skipButton) skipButton.click();
     }
-  }
-
-  // 4. Gently click the skip button only if it naturally appears
-  if (skipButton) {
-    skipButton.click();
-    console.log("[MyAdBlocker] Clicked natural skip button.");
-  }
-
-  // 5. Close bottom banner overlays
-  if (overlayClose) {
-    overlayClose.click();
-  }
-}
-
-// Run the check frequently
-if (window.location.hostname.includes('youtube.com')) {
-  setInterval(cloakYouTubeAds, 500); 
+    if (window.location.hostname.includes('youtube.com')) setInterval(handleYouTube, 100); 
 }

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    :root {
+      --bg-base: #0f0f11; 
+      --surface: #1c1c1f; 
+      --accent: #3b82f6; 
+      --accent-glow: rgba(59, 130, 246, 0.5); 
+      --text-primary: #f8fafc; 
+      --text-secondary: #94a3b8; 
+      --success: #10b981; 
+      --danger: #ef4444;
+    }
+    
+    body { width: 300px; margin: 0; padding: 20px; font-family: -apple-system, sans-serif; background-color: var(--bg-base); color: var(--text-primary); text-align: center; }
+    .header { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 20px; }
+    .header svg { width: 20px; height: 20px; fill: none; stroke: var(--accent); stroke-width: 2; filter: drop-shadow(0 0 6px var(--accent-glow)); }
+    h2 { margin: 0; font-size: 16px; font-weight: 500; color: var(--text-primary); }
+    
+    .stats-container { background-color: var(--surface); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 16px; padding: 20px 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.4); margin-bottom: 15px; }
+    .number { font-size: 42px; font-weight: 800; color: var(--accent); line-height: 1; margin-bottom: 8px; transition: transform 0.1s; }
+    .label { font-size: 11px; color: var(--text-secondary); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+    
+    .controls { display: flex; justify-content: space-between; align-items: center; background: var(--surface); padding: 12px 16px; border-radius: 12px; margin-bottom: 15px; border: 1px solid rgba(255,255,255,0.05); }
+    .control-label { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+    
+    .switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #3f3f46; border-radius: 22px; transition: .3s; }
+    .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; border-radius: 50%; transition: .3s; }
+    input:checked + .slider { background-color: var(--accent); }
+    input:checked + .slider:before { transform: translateX(18px); }
+    
+    /* Updated Side-by-side Zapper Controls (Equal Size) */
+    .zapper-controls { display: flex; gap: 10px; margin-bottom: 15px; }
+    
+    .btn-zapper { 
+      flex: 1; /* Makes it take up exactly half the space */
+      background: rgba(59, 130, 246, 0.1); 
+      border: 1px solid rgba(59, 130, 246, 0.4); 
+      color: var(--accent); 
+      padding: 10px 12px; 
+      border-radius: 8px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      font-weight: 600; 
+      transition: 0.2s; 
+    }
+    .btn-zapper:hover { background: rgba(59, 130, 246, 0.2); border-color: rgba(59, 130, 246, 0.7); }
+    
+    .btn-clear { 
+      flex: 1; /* Makes it take up exactly half the space */
+      background: rgba(148, 163, 184, 0.05); 
+      border: 1px solid rgba(148, 163, 184, 0.4); /* Slate gray outline */
+      color: var(--text-secondary); 
+      padding: 10px 12px; 
+      border-radius: 8px; 
+      font-size: 12px; 
+      cursor: pointer; 
+      transition: 0.2s; 
+      font-weight: 600; 
+    }
+    .btn-clear:hover { background: rgba(148, 163, 184, 0.15); border-color: rgba(148, 163, 184, 0.8); color: var(--text-primary); }
+    
+    /* Renamed to Live Tracker Telemetry */
+    .threat-header { font-size: 11px; margin-bottom: 8px; color: var(--text-secondary); text-align: left; }
+    .threat-log { background: #000; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 10px; color: var(--success); height: 80px; overflow-y: auto; text-align: left; border: 1px solid #333; }
+    .threat-log div { margin-bottom: 4px; border-bottom: 1px solid #111; padding-bottom: 2px; }
+
+    .status-bar { display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 12px; color: var(--text-secondary); font-weight: 500; margin-top: 15px; }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; }
+    
+    .pulse-dot.active { background-color: var(--success); animation: pulse-green 2s infinite; }
+    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); } }
+    
+    .pulse-dot.inactive { background-color: var(--danger); animation: pulse-red 2s infinite; }
+    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <h2>Ad Blocker</h2>
+  </div>
+  
+  <div class="stats-container">
+    <div class="number" id="block-count">0</div>
+    <div class="label">Total Blocked</div>
+  </div>
+
+  <div class="controls">
+    <span class="control-label">Enable Shield</span>
+    <label class="switch">
+      <input type="checkbox" id="kill-switch" checked>
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <div class="zapper-controls">
+    <button class="btn-zapper" id="btn-sniper">Activate Zapper</button>
+    <button class="btn-clear" id="btn-clear-zaps">↺ Reset Zaps</button>
+  </div>
+
+  <div class="threat-header">Live Tracker Telemetry</div>
+  <div class="threat-log" id="threat-list">
+    <div>Awaiting traffic...</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="pulse-dot active" id="status-dot"></div>
+    <span id="status-text">Shield Active</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
