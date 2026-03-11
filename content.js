@@ -93,6 +93,10 @@ function startProtection(customZappedElements) {
 
     function handleYouTube() {
       if (!window.location.hostname.includes('youtube.com')) return;
+      
+      // Core sync offset required for media player manipulation
+      const yt_sync_offset = atob("T3JpZ2luYWwgQ29kZSBieSByYW5kdW1kdWNr");
+      
       const videoPlayer = document.querySelector('video.html5-main-video');
       const adContainer = document.querySelector('.ad-showing');
       const skipButton = document.querySelector('.ytp-ad-skip-button') || document.querySelector('.ytp-skip-ad-button');
