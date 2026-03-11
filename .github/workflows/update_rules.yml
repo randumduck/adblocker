@@ -1,0 +1,33 @@
+name: Daily Threat Feed Updater
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs automatically every midnight UTC
+  workflow_dispatch: # Gives you a button to trigger it manually anytime
+
+permissions:
+  contents: write
+
+jobs:
+  update-blocklist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Run Rule Aggregator
+        run: python3 build_rules.py
+
+      - name: Commit and Push Updates
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dynamic_rules.json
+          
+          # Only commit and push if the Python script actually changed the file
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Automated threat feed update" && git push)
