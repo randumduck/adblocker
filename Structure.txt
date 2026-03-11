@@ -1,0 +1,10 @@
+MyAdBlockerMV3/
+│
+├── icons/            <-- Create this folder (you will need to provide your own 16x16, 48x48, and 128x128 pixel logo images here)
+│   ├── icon16.png
+│   ├── icon48.png
+│   └── icon128.png
+│
+├── manifest.json      <-- We will create this now.
+├── rules.json         <-- This will store our network blocking rules.
+└── content.js         <-- This will handle cosmetic filtering and YouTube specific logic.
