@@ -1,23 +1,22 @@
 // background.js
 
-// The URL where you host your master rules.json (e.g., your GitHub repo)
-// For testing, you can leave this blank or point it to a test JSON URL.
-const REMOTE_RULES_URL = "https://github.com/randumduck/adblocker/blob/915abdb6c587beb2c43d62ae5439e8a8343ebd5e/dynamic_rules.json";
+// The URL where you host your master dynamic_rules.json on GitHub
+const REMOTE_RULES_URL = "https://raw.githubusercontent.com/randumduck/adblocker/refs/heads/main/dynamic_rules.json";
 
-// Function to fetch and update rules
+// --- PART 1: DYNAMIC RULES UPDATER ---
 async function updateDynamicRules() {
     try {
-        console.log("[MyAdBlocker] Fetching latest rules...");
+        console.log("[MyAdBlocker] Fetching latest rules from GitHub...");
         
-        // Fetch the secure JSON file from your trusted server
         const response = await fetch(REMOTE_RULES_URL);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        
         const newRules = await response.json();
 
         // Manifest V3 requires us to clear old dynamic rules before adding new ones
         const oldRules = await chrome.declarativeNetRequest.getDynamicRules();
         const oldRuleIds = oldRules.map(rule => rule.id);
 
-        // Apply the update
         await chrome.declarativeNetRequest.updateDynamicRules({
             removeRuleIds: oldRuleIds,
             addRules: newRules
@@ -29,16 +28,32 @@ async function updateDynamicRules() {
     }
 }
 
-// 1. Run the update when the extension is first installed
+// Run update on install/startup
 chrome.runtime.onInstalled.addListener(() => {
     updateDynamicRules();
-    // Set an alarm to check for updates every 24 hours (1440 minutes)
-    chrome.alarms.create("updateRulesAlarm", { periodInMinutes: 1440 });
+    chrome.alarms.create("updateRulesAlarm", { periodInMinutes: 1440 }); // Update every 24 hours
 });
 
-// 2. Listen for the alarm to trigger the update
+// Listen for the daily alarm
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === "updateRulesAlarm") {
         updateDynamicRules();
     }
 });
+
+
+// --- PART 2: LIVE BLOCK COUNTER ---
+let blockedCount = 0;
+
+// Listen for matched network rules to update the badge
+if (chrome.declarativeNetRequest.onRuleMatchedDebug) {
+    chrome.declarativeNetRequest.onRuleMatchedDebug.addListener((info) => {
+        blockedCount++;
+        // Update the text on the badge
+        chrome.action.setBadgeText({ text: blockedCount.toString() });
+        // Make the badge background red
+        chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+    });
+} else {
+    console.warn("[MyAdBlocker] Rule matching debug not available. Counter won't work.");
+}
